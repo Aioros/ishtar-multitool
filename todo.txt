@@ -1,0 +1,1 @@
+check manifest version and updatedb if necessary

@@ -1,0 +1,47 @@
+html {
+	font-size: small;
+}
+
+body {
+	width: 400px;
+	min-height: 400px;
+	overflow: visible;
+	padding: 20px;
+}
+
+.hidden:not(.selected) {
+	display: none !important;
+}
+
+.placeholder-element {
+	display: none !important;
+}
+
+#language_manager .language-name,
+#language_manager .language-add,
+#language_manager .language-delete {
+	cursor: pointer;
+}
+
+#language_manager .language-loading {
+	display: inline-block;
+	animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+#language_manager .language[data-language="en"] .language-delete {
+	display: none;
+}
+
+#language_manager .language.selected {
+	color: blue;
+}
+
+#language_manager #notinstalled_languages .language .language-delete,
+#language_manager #installed_languages .language .language-add {
+	display: none;
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <link rel="stylesheet" href="popup.css">
+        <link href="lib/bootstrap-5.1.3.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="lib/bootstrap-icons-1.8.1/bootstrap-icons.css">
+    </head>
+    <body class="d-flex flex-column justify-content-between">
+        <header>
+            <h1>Ishtar MultiTool</h1>
+        </header>
+        <main>
+            <div class="row">
+                <div class="column" id="ishtar_info" class="hidden">
+                    <p>Type: <span id="page_type"></span></p>
+                    <p>Title: <span id="page_title"></span></p>
+                </div>
+            </div>
+        </main>
+        <footer class="row" id="language_manager">
+            <div class="col dropup">
+                <button class="btn btn-secondary dropdown-toggle" 
+                    type="button" id="selected_language" 
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                </button>
+                <ul class="dropdown-menu" id="installed_languages"></ul>
+            </div>
+            <div class="col dropup">
+                <button class="btn btn-secondary dropdown-toggle" data-bs-auto-close="outside"
+                    type="button" id="add_languages"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                        Add Language
+                </button>
+                <ul class="dropdown-menu" id="notinstalled_languages" aria-labelledby="add_languages">
+                    <li class="language dropdown-item placeholder-element" data-language="">
+                        <span class="language-name"></span>
+                        <i class="bi bi-plus-circle language-add"></i>
+                        <i class="bi bi-dash-circle language-delete"></i>
+                        <i class="bi bi-arrow-repeat language-loading hidden"></i>
+                    </li>
+                </ul>
+            </div>
+        </footer>
+        <script src="popup.js"></script>
+        <script src="lib/bootstrap-5.1.3.bundle.min.js"></script>
+    </body>
+</html>

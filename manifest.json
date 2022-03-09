@@ -1,0 +1,25 @@
+{
+    "name": "Ishtar MultiTool",
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "manifest_version": 3,
+    "version": "0.1",
+    "description": "Improve your Ishtar Collective experience",
+    "permissions": [
+        "scripting",
+        "storage"
+    ],
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "web_accessible_resources": [{
+      "resources": [ "/img/*" ],
+      "matches": [ "https://www.ishtar-collective.net/*" ]
+    }],
+    "host_permissions": [
+        "https://www.ishtar-collective.net/",
+        "https://bungie.net/"
+    ]
+}
