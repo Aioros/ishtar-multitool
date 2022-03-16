@@ -15,7 +15,7 @@
         "type": "module"
     },
     "web_accessible_resources": [{
-      "resources": [ "/img/*" ],
+      "resources": [ "/img/*", "/d1/*" ],
       "matches": [ "https://www.ishtar-collective.net/*" ]
     }],
     "host_permissions": [

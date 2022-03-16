@@ -30,19 +30,21 @@ function getDB() {
             store.createIndex("url", "url");
             store.createIndex("type", "type");
 
-            await transaction.done;
+            //await transaction.done;
 
             var manifest = await fetch("https://www.bungie.net/Platform/Destiny2/Manifest/").then(r => r.json());
             var enLoreDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths.en.DestinyLoreDefinition;
+            var enCardsUrl = chrome.runtime.getURL("d1/DestinyGrimoireCardDefinition.en.json");
             var enPresentationNodeDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths.en.DestinyPresentationNodeDefinition;
             var enRecordDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths.en.DestinyRecordDefinition;
             var enSeasonDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths.en.DestinySeasonDefinition;
 
-            var [enEntries, enPresentationNodes, enRecords, enSeasons] = await Promise.all([
+            var [enEntries, enCards, enPresentationNodes, enRecords, enSeasons] = await Promise.all([
                 fetch("https://www.bungie.net" + enLoreDefinitionUrl).then(r => r.json()),
+                fetch(enCardsUrl).then(r => r.json()),
                 fetch("https://www.bungie.net" + enPresentationNodeDefinitionUrl).then(r => r.json()),
                 fetch("https://www.bungie.net" + enRecordDefinitionUrl).then(r => r.json()),
-                fetch("https://www.bungie.net" + enSeasonDefinitionUrl).then(r => r.json())
+                fetch("https://www.bungie.net" + enSeasonDefinitionUrl + "?cachebuster=" + Math.round(new Date().getTime())).then(r => r.json())
             ]);
 
             var entryPages = Object.values(enEntries).map((entry) => ({
@@ -52,6 +54,16 @@ function getDB() {
                 subtitle: {en: entry.subtitle},
                 content: {en: entry.displayProperties.description},
                 url: ""
+            })).concat(enCards.map((card) => {
+                var cardData = JSON.parse(card.json);
+                return {
+                    hash: cardData.cardId,
+                    type: "card",
+                    title: {en: cardData.cardName},
+                    subtitle: {en: cardData.cardIntro},
+                    content: {en: cardData.cardDescription},
+                    url: ""
+                }
             }));
             
             var mainLoreNode = Object.values(enPresentationNodes).find(
@@ -95,6 +107,7 @@ function getDB() {
             for (let additionalLanguage of languages.filter((l) => (l != "en"))) {
                 await addLanguage(db, additionalLanguage);
             }
+            debugLog("DB ready");
 
         },
         blocked() {
@@ -155,6 +168,9 @@ function retrievePageInfo() {
     var pageType, title;
     if (document.URL.includes("/entries/")) {
         pageType = "entry";
+        title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — "));
+    } else if (document.URL.includes("/cards/")) {
+        pageType = "card";
         title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — "));
     } else if (document.URL.includes("/categories/book")) {
         pageType = "book";
@@ -288,47 +304,76 @@ function updatePageContent(pageInfo, language, stringTranslations) {
 
     if (pageInfo?.type != "other") {
 
-        if (pageInfo.type == "entry") {
+        if (!pageInfo.content[language]) {
 
-            var description = pageInfo.content[language]
-                .split("\n\n")
-                .join("</p><p>");
-            description = "<p>" + description  + "</p>";
-            description = description.replace(/\n/g, "<br>");
-            document.querySelector(".description").innerHTML = description;
-            var titleEl = document.querySelector(".wrapper>h2");
-            replaceInnerText(titleEl, titleEl.textContent, pageInfo.title[language]);
-            var subtitleElement = document.querySelector(".subtitle>p");
-            if (subtitleElement) {
-                subtitleElement.innerText = pageInfo.subtitle[language];
+            // This happens for grimoire cards with languages not available in D1
+            var alert = document.createElement("div");
+            alert.classList.add("alert");
+            alert.setAttribute("role", "alert");
+            alert.style = `
+                color: #856404;
+                background-color: #fff3cd;
+                border-color: #ffeeba;
+                position: relative;
+                padding: 0.75rem 1.25rem;
+                margin-bottom: 1rem;
+                border: 1px solid transparent;
+                border-radius: 0.25rem;`
+            alert.innerHTML = `The preferred language is not available for Destiny 1 entries.`
+            document.querySelector(".header").appendChild(alert);
+
+        } else {
+
+            if (pageInfo.type == "entry") {
+
+                var description = pageInfo.content[language]
+                    .split("\n\n")
+                    .join("</p><p>");
+                description = "<p>" + description  + "</p>";
+                description = description.replace(/\n/g, "<br>");
+                document.querySelector(".description").innerHTML = description;
+                var titleEl = document.querySelector(".wrapper>h2");
+                replaceInnerText(titleEl, titleEl.textContent, pageInfo.title[language]);
+                var subtitleElement = document.querySelector(".subtitle>p");
+                if (subtitleElement) {
+                    subtitleElement.innerText = pageInfo.subtitle[language];
+                }
+
+            } else if (pageInfo.type == "card") {
+
+                var description = pageInfo.content[language];
+                document.querySelector(".description").innerHTML = description;
+                var titleEl = document.querySelector("h2.card-title");
+                titleEl.innerHTML = pageInfo.title[language];
+                var subtitleElement = document.querySelector(".intro-text");
+                subtitleElement.innerHTML = pageInfo.subtitle[language];
+
+            } else if (pageInfo.type == "book") {
+
+                var titleElement = document.querySelector(".wrapper .left-column h2");
+                titleElement.innerText = pageInfo.title[language];
+
             }
 
-        } else if (pageInfo.type == "book") {
+            if (!document.body.dataset.originalTitle) {
+                document.body.dataset.originalTitle = pageInfo.title.en;
+            }
 
-            var titleElement = document.querySelector(".wrapper .left-column h2");
-            titleElement.innerText = pageInfo.title[language];
+            var currentTitle = document.body.dataset.currentTitle || pageInfo.title.en;
+            var newTitle = document.title.replace(/^.* — /, pageInfo.title[language] + " — ");
+            if (pageInfo.type == "book") {
+                newTitle = (stringTranslations?.["Book: "]?.[language] || "Book: ") + newTitle;
+            }
+            document.title = newTitle;
+            document.body.dataset.currentTitle = pageInfo.title[language];
 
         }
-
-        if (!document.body.dataset.originalTitle) {
-            document.body.dataset.originalTitle = pageInfo.title.en;
-        }
-
-        var currentTitle = document.body.dataset.currentTitle || pageInfo.title.en;
-        var newTitle = document.title.replace(/^.* — /, pageInfo.title[language] + " — ");
-        if (pageInfo.type == "book") {
-            newTitle = (stringTranslations?.["Book: "]?.[language] || "Book: ") + newTitle;
-        }
-        document.title = newTitle;
-        document.body.dataset.currentTitle = pageInfo.title[language];
 
     }
 
     document.body.dataset.currentLanguage = language;
 
 }
-
-// TODO: on language preference change, update content on all tabs
 
 async function getPageInfo(tab) {
 
@@ -371,11 +416,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         ]).then((results) => {
             var preferredLanguage = results[0]?.language || "en";
             var pageInfo = results[1];
-            chrome.scripting.executeScript({
-                target: {tabId},
-                func: updatePageContent,
-                args: [pageInfo, preferredLanguage, stringTranslations]
-            });
+            if (preferredLanguage != "en") {
+                chrome.scripting.executeScript({
+                    target: {tabId},
+                    func: updatePageContent,
+                    args: [pageInfo, preferredLanguage, stringTranslations]
+                });
+            }
         });
 
     }
@@ -415,14 +462,6 @@ async function replyToMessage(request) {
 
         var pageInfo = await getPageInfo(tab);
 
-        /*if (request.args.update) {
-            chrome.scripting.executeScript({
-                target: {tabId: tab.id},
-                func: updatePageContent,
-                args: [pageInfo, request.args.language, stringTranslations]
-            });
-        }*/
-
         return pageInfo;
 
     } else if (request.request === "translatePage") {
@@ -444,7 +483,9 @@ async function replyToMessage(request) {
     } else if (request.request === "installedLanguages") {
 
         let idb = await getDB();
-        let cursor = await idb.transaction("pages").store.openCursor();
+        //let cursor = await idb.transaction("pages").store.openCursor();
+        let cursor = await idb.transaction("pages").store.index("type").openCursor(IDBKeyRange.only("entry"));
+
         let installedLanguages = Object.keys(cursor.value.title);
         return installedLanguages;
 
@@ -522,13 +563,17 @@ async function setupDB() {
 }
 
 async function addLanguage(db, language) {
+    var closestD1Language = language.split("-")[0];
+
     var manifest = await fetch("https://www.bungie.net/Platform/Destiny2/Manifest/").then(r => r.json());
     var loreDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths[language].DestinyLoreDefinition;
+    var cardsUrl = chrome.runtime.getURL(`d1/DestinyGrimoireCardDefinition.${closestD1Language}.json`);
     var presentationNodeDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths[language].DestinyPresentationNodeDefinition;
     var seasonDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths[language].DestinySeasonDefinition;
 
-    var [entries, presentationNodes, seasons] = await Promise.all([
+    var [entries, cards, presentationNodes, seasons] = await Promise.all([
         fetch("https://www.bungie.net" + loreDefinitionUrl).then(r => r.json()),
+        fetch(cardsUrl).then(r => r.json()).catch(e => {debugLog(`Language ${language} not available in D1`); return [];}),
         fetch("https://www.bungie.net" + presentationNodeDefinitionUrl).then(r => r.json()),
         fetch("https://www.bungie.net" + seasonDefinitionUrl).then(r => r.json())
     ]);
@@ -541,16 +586,22 @@ async function addLanguage(db, language) {
             newPage.title[language] = entry.displayProperties.name;
             newPage.subtitle[language] = entry.subtitle;
             newPage.content[language] = entry.displayProperties.description;
-            return newPage;
+        } else if (oldPage.type == "card") {
+            var card = cards.find((card) => card.id == oldPage.hash);
+            if (card) {
+                card = JSON.parse(card.json);
+                newPage.title[language] = card.cardName;
+                newPage.subtitle[language] = card.cardIntro;
+                newPage.content[language] = card.cardDescription;
+            }
         } else if (oldPage.type == "book") {
             var book = presentationNodes[oldPage.hash];
             newPage.title[language] = book.displayProperties.name;
-            return newPage;
         } else if (oldPage.type == "season") {
             var season = seasons[oldPage.hash];
             newPage.title[language] = season.displayProperties.name;
-            return newPage;
         }
+        return newPage;
     });
 
     const tx = db.transaction("pages", "readwrite");

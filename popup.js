@@ -56,12 +56,13 @@ function translatePage(language = "en") {
 
 function updatePageInfo(pageInfo, language) {
     document.getElementById("page_type").innerHTML = ucfirst(pageInfo.type);
-    document.getElementById("page_title").innerHTML = pageInfo.title[language];
+    document.getElementById("page_title").innerHTML = pageInfo.title[language] || pageInfo.title.en;
     document.getElementById("ishtar_info").classList.remove("hidden");
 }
 
 async function updateLanguageList(preferredLanguage) {
     console.log("updateLanguageList", preferredLanguage);
+    debugger;
     var installedLanguages = await getInstalledLanguages();
     var oldLanguages = document.querySelectorAll("#language_manager .language:not(.placeholder-element)");
     // Remove all languages
@@ -140,6 +141,7 @@ var allLanguages = {
 main();
 
 async function main() {
+    debugger;
     var tabs = await chrome.tabs.query({active: true, currentWindow: true});
     currentTab = tabs[0];
 

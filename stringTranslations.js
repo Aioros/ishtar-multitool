@@ -22,6 +22,9 @@ var stringTranslations = {
 	},
 	"Forsaken": {
 		it: "I Rinnegati"
+	},
+	"The Taken King": {
+		it: "Il Re dei Corrotti"
 	}
 }
 
