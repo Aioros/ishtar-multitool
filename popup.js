@@ -1,3 +1,21 @@
+import utils from "./utils.js";
+
+var treeConfig = {
+    searchable: true,
+    showEmptyGroups: false,
+
+    groupOpenIconClass: "bi",
+    groupOpenIcon: "bi-chevron-down",
+
+    groupCloseIconClass: "bi",
+    groupCloseIcon: "bi-chevron-right",
+
+    linkIconClass: "bi",
+    linkIcon: "bi-link",
+
+    searchPlaceholderText: "",
+};
+
 // Promise wrapper for chrome.tabs.sendMessage
 function sendMessage() {
     return new Promise((resolve, reject) => {
@@ -54,15 +72,67 @@ function translatePage(language = "en") {
     });
 }
 
-function updatePageInfo(pageInfo, language) {
-    document.getElementById("page_type").innerHTML = ucfirst(pageInfo.type);
-    document.getElementById("page_title").innerHTML = pageInfo.title[language] || pageInfo.title.en;
-    document.getElementById("ishtar_info").classList.remove("hidden");
+async function buildTree(language) {
+    document.getElementById("tree_loading").classList.remove("d-none");
+    document.getElementById("tree").classList.add("d-none");
+    
+    var dbReady = await sendMessage({request: "isDBReady"});
+
+    var {loreTree} = await chrome.storage.local.get("loreTree");
+
+    loreTree = loreTree[language];
+
+    var treeRoot = document.getElementById("tree");
+    var catPlaceholder = document.querySelector("#tree_placeholders .placeholder-element:not(.leaf)");
+    var leafPlaceholder = document.querySelector("#tree_placeholders .placeholder-element.leaf");
+
+    treeRoot.innerHTML = "";
+
+    function fillTree(root, data) {
+        if (data[0].children) {
+            for (let child of data) {
+                let newCategory = catPlaceholder.cloneNode(true);
+                newCategory.id = utils.slugify(child.name);
+                newCategory.dataset.name = child.name;
+                if (child.url) {
+                    newCategory.dataset.url = child.url;
+                }
+                newCategory.querySelector("a").innerHTML = child.name;
+                newCategory.querySelector("a").setAttribute("title", child.name);
+                newCategory.classList.remove("placeholder-element");
+                root.append(newCategory);
+                fillTree(newCategory.querySelector("ul"), child.children);
+            }
+        } else {
+            for (let child of data) {
+                let newLeaf = leafPlaceholder.cloneNode(true);
+                newLeaf.id = utils.slugify(child.name);
+                newLeaf.dataset.name = child.name;
+                newLeaf.dataset.url = child.url;
+                newLeaf.querySelector("a").innerHTML = child.name;
+                newLeaf.querySelector("a").setAttribute("title", child.name);
+                newLeaf.querySelector("a").href = "http://www.ishtar-collective.net" + child.url;
+                newLeaf.classList.remove("placeholder-element");
+                root.append(newLeaf);
+            }
+        }
+    }
+
+    fillTree(treeRoot, loreTree);
+
+    NavTree.createBySelector("#tree", treeConfig);
+
+    document.getElementById("tree_loading").classList.add("d-none");
+    document.getElementById("tree").classList.remove("d-none");
+
+}
+
+function expandTree(pageInfo) {
+    var navTree = NavTree.getOrCreateInstance(document.getElementById("tree"));
+    navTree.search({url: pageInfo.url, exact: true, showSiblings: true});
 }
 
 async function updateLanguageList(preferredLanguage) {
-    console.log("updateLanguageList", preferredLanguage);
-    debugger;
     var installedLanguages = await getInstalledLanguages();
     var oldLanguages = document.querySelectorAll("#language_manager .language:not(.placeholder-element)");
     // Remove all languages
@@ -107,11 +177,12 @@ async function updateLanguageList(preferredLanguage) {
                 languageElement.querySelector(".language-name").addEventListener("click", async (evt) => {
                     var language = evt.target.closest(".language").dataset.language;
                     await chrome.storage.sync.set({language});
+                    await buildTree(language);
                     await updateLanguageList(language);
-                    if (currentTab.url && currentTab.url.includes("ishtar-collective.net/entries/")) {
+                    if (currentTab.url?.includes("ishtar-collective.net/entries/")) {
                         let pageInfo = await askForPageInfo();
                         if (pageInfo) {
-                            updatePageInfo(pageInfo, language);
+                            expandTree(pageInfo);
                         }
                     }
                 });
@@ -138,10 +209,17 @@ var allLanguages = {
     "zh-chs": "简体中文"
 };
 
+function openLink(url) {
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        var tab = tabs[0];
+        chrome.tabs.update(tab.id, {url});
+    });
+}
+
 main();
 
 async function main() {
-    debugger;
+    
     var tabs = await chrome.tabs.query({active: true, currentWindow: true});
     currentTab = tabs[0];
 
@@ -149,15 +227,41 @@ async function main() {
 
     await updateLanguageList(preferredLanguage.language);
 
+    var pageInfo;
     var language = preferredLanguage.language || "en";
     if (currentTab.url && currentTab.url.includes("ishtar-collective.net")) {
-        let pageInfo = await askForPageInfo();
-        if (pageInfo) {
-            updatePageInfo(pageInfo, language);
-        }
+        pageInfo = await askForPageInfo();
         if (pageInfo.currentLanguage != language) {
             translatePage(language);
         }
     }
+
+    await buildTree(language);
+    if (pageInfo) {
+        expandTree(pageInfo);
+    }
+
+    document.querySelector("header a").addEventListener("click", (evt) => {
+        evt.preventDefault();
+        openLink(evt.target.closest("a").href);
+    });
+
+    document.querySelector("#tree").addEventListener("click", (evt) => {
+        let closestLi = evt.target.closest("li");
+        if (closestLi?.classList.contains("leaf")) {
+            evt.preventDefault();
+            openLink(evt.target.href);
+        }
+    });
+
+    document.querySelector('#nav-tree-search').addEventListener("keypress", (evt) => {
+        console.log(evt);
+        if (evt.key === 'Enter') {
+            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                var tab = tabs[0];
+                chrome.tabs.update(tab.id, {url: `http://www.ishtar-collective.net/search/${evt.target.value}`});
+            });
+        }
+    });
 
 }

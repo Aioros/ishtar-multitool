@@ -8,15 +8,17 @@ export default {
         } else if (document.URL.includes("/cards/")) {
             pageType = "card";
             title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — "));
-        } else if (document.URL.includes("/categories/book")) {
+        } else if (document.URL.includes("/categories/book") || document.URL.includes("/categories/the-maraid")) {
             pageType = "book";
             title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — ")).replace("Book: ", "");
+        /*
         } else if (document.URL.includes("/categories/")) {
             pageType = "other";//"category"; NOT SURE WHAT TO DO HERE
             title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — ")).replace("Book: ", "");
         } else if (document.URL.includes("/books")) {
             pageType = "other";//"book";
             title = document.body.dataset.originalTitle || document.title.substring(0, document.title.indexOf(" — ")).replace("Book: ", "");
+        */
         } else {
             pageType = "other";
             title = document.title.substring(0, document.title.indexOf(" — "));
@@ -32,7 +34,7 @@ export default {
             background-color: white;
             background-repeat: no-repeat;
             background-position: center;
-            position: absolute;
+            position: fixed;
             top: 0;
             width: 100%;
             height: 100%;
@@ -49,6 +51,33 @@ export default {
                 replaceInnerText(child, oldText, newText);
             }
         }
+        function parseHtmlEntities(str) {
+            return str.replace(/&#([0-9]{1,3});/gi, function(match, numStr) {
+                var num = parseInt(numStr, 10); // read num as normal number
+                return String.fromCharCode(num);
+            });
+        }
+        function languageMissingAlert(partial = false) {
+            var alert = document.createElement("div");
+            alert.id = "language_alert";
+            alert.classList.add("alert");
+            alert.setAttribute("role", "alert");
+            alert.style = `
+                color: #856404;
+                background-color: #fff3cd;
+                border-color: #ffeeba;
+                position: relative;
+                padding: 0.75rem 1.25rem;
+                margin-bottom: 1rem;
+                border: 1px solid transparent;
+                border-radius: 0.25rem;`
+            if (partial) {
+                alert.innerHTML = `Some Destiny 1 items in this page could not be translated.`;
+            } else {
+                alert.innerHTML = `The preferred language is not available for Destiny 1 entries.`;
+            }
+            document.querySelector(".header").appendChild(alert);
+        }
 
         var entryLinkElements = [...document.querySelectorAll(`a[href*="/entries/"]`)]
             .filter((link) => link.innerText && !link.href.endsWith("/history"));
@@ -57,9 +86,19 @@ export default {
             if (!link.dataset.originalTitle)
                 link.dataset.originalTitle = link.textContent.trim();
         });
+
+        var cardLinkElements = [...document.querySelectorAll(`a[href*="/cards/"]`)]
+            .filter((link) => link.innerText);
+        cardLinkElements.forEach((link) => {
+            link.dataset.type = "card";
+            if (!link.dataset.originalTitle)
+                link.dataset.originalTitle = link.textContent.trim();
+        });
         
-        var bookLinkElements = [...document.querySelectorAll(`a[href*="/categories/book"]`)]
-            .filter((link) => link.innerText && !link.innerText.includes("Read more"));
+        var bookLinkElements = [
+            ...document.querySelectorAll(`a[href*="/categories/book"]`),
+            ...document.querySelectorAll(`a[href*="/categories/the-maraid"]`)
+        ].filter((link) => link.innerText && !link.innerText.includes("Read more"));
         bookLinkElements.forEach((link) => {
             link.dataset.type = "book";
             if (!link.dataset.originalTitle) {
@@ -103,6 +142,7 @@ export default {
 
         var translatableElements = [
             ...entryLinkElements,
+            ...cardLinkElements,
             ...bookLinkElements,
             ...readMoreElements,
             ...seasonElements,
@@ -123,6 +163,7 @@ export default {
             request: "requestElementsTranslation",
             args: {elements: translatable, language}
         }, (translatedElements) => {
+            var missingLanguage = false;
             translatedElements = translatedElements.filter((link) => link);
             translatableElements.forEach((element) => {
                 var tElem = translatedElements.find((tElem) => tElem.type == element.dataset.type && tElem.title.en == element.dataset.originalTitle);
@@ -131,31 +172,31 @@ export default {
                     if (tElem.type == "book") {
                         prefix = element.dataset.hasPrefix == 1 ? (stringTranslations?.["Book: "]?.[language] || "Book: ") : "";
                     }
-                    replaceInnerText(element, element.textContent, prefix + tElem.title[language]);
+                    let newText = tElem.title[language] || tElem.title[language.split("-")[0]];
+                    if (newText) {
+                        replaceInnerText(element, element.textContent, prefix + parseHtmlEntities(newText));
+                    } else {
+                        missingLanguage = true;
+                    }
                 }
             });
             spinner.parentNode.removeChild(spinner);
+            if (missingLanguage) {
+                languageMissingAlert(true);
+            } else {
+                var alert = document.getElementById("language_alert");
+                if (alert) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }
         });
 
         if (pageInfo?.type != "other") {
 
-            if (!pageInfo.content[language]) {
+            if (pageInfo.type == "card" && !pageInfo.content[language]) {
 
                 // This happens for grimoire cards with languages not available in D1
-                var alert = document.createElement("div");
-                alert.classList.add("alert");
-                alert.setAttribute("role", "alert");
-                alert.style = `
-                    color: #856404;
-                    background-color: #fff3cd;
-                    border-color: #ffeeba;
-                    position: relative;
-                    padding: 0.75rem 1.25rem;
-                    margin-bottom: 1rem;
-                    border: 1px solid transparent;
-                    border-radius: 0.25rem;`
-                alert.innerHTML = `The preferred language is not available for Destiny 1 entries.`
-                document.querySelector(".header").appendChild(alert);
+                languageMissingAlert();
 
             } else {
 

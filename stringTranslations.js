@@ -25,6 +25,9 @@ var stringTranslations = {
 	},
 	"The Taken King": {
 		it: "Il Re dei Corrotti"
+	},
+	"House of Wolves": {
+		it: "Il Casato dei Lupi"
 	}
 }
 

@@ -2,35 +2,54 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <link rel="stylesheet" href="popup.css">
-        <link href="lib/bootstrap-5.1.3.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="lib/bootstrap-5.1.3.min.css">
         <link rel="stylesheet" href="lib/bootstrap-icons-1.8.1/bootstrap-icons.css">
+        <link rel="stylesheet" href="lib/fonts/stylesheet.css">
+        <link rel="stylesheet" href="popup.css">
+        <link rel="stylesheet" href="lib/tree.css">
     </head>
-    <body class="d-flex flex-column justify-content-between">
+    <body class="d-flex flex-column h-100">
         <header>
-            <h1>Ishtar MultiTool</h1>
+            <a href="https://www.ishtar-collective.net" class="d-flex align-items-center justify-content-between">
+                <img src="img/ishtar_38.png" />
+                <h1 class="my-0">Ishtar MultiTool</h1>
+            </a>
         </header>
-        <main>
+        <main class="flex-grow-1">
             <div class="row">
-                <div class="column" id="ishtar_info" class="hidden">
-                    <p>Type: <span id="page_type"></span></p>
-                    <p>Title: <span id="page_title"></span></p>
+                <div class="col">
+                    <ul id="tree_placeholders">
+                        <li class="placeholder-element">
+                            <span><i class="fas fa-chevron-left"></i></span>
+                            <a></a>
+                            <ul></ul>
+                        </li>
+                        <li class="placeholder-element leaf">
+                            <a></a>
+                        </li>
+                    </ul>
+                    <ul id="tree" class="tree d-none"></ul>
+                    <div id="tree_loading" class="d-flex justify-content-center my-5">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
-        <footer class="row" id="language_manager">
-            <div class="col dropup">
+        <footer class="footer d-flex justify-content-between" id="language_manager">
+            <div class="dropup">
                 <button class="btn btn-secondary dropdown-toggle" 
                     type="button" id="selected_language" 
                     data-bs-toggle="dropdown" aria-expanded="false">
                 </button>
                 <ul class="dropdown-menu" id="installed_languages"></ul>
             </div>
-            <div class="col dropup">
+            <div class="dropup">
                 <button class="btn btn-secondary dropdown-toggle" data-bs-auto-close="outside"
                     type="button" id="add_languages"
                     data-bs-toggle="dropdown" aria-expanded="false">
-                        Add Language
+                        <i class="bi bi-translate"></i>
                 </button>
                 <ul class="dropdown-menu" id="notinstalled_languages" aria-labelledby="add_languages">
                     <li class="language dropdown-item placeholder-element" data-language="">
@@ -42,7 +61,8 @@
                 </ul>
             </div>
         </footer>
-        <script src="popup.js"></script>
         <script src="lib/bootstrap-5.1.3.bundle.min.js"></script>
+        <script src="lib/tree.js"></script>
+        <script type="module" src="popup.js"></script>
     </body>
 </html>

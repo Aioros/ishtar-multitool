@@ -1,0 +1,57 @@
+.ms-n8 {
+  margin-left: -2rem !important;
+}
+
+.nt-li:focus,
+.nt-li.active {
+  background-color: #f9fafb;
+}
+
+.nt-li:focus *,
+.nt-li.active * {
+  color: black!important;
+}
+
+.nt-li>.d-flex:hover {
+  background-color: #f8f9fa;
+}
+
+.nt-li a {
+  padding: 0;
+}
+
+#tree {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-wrap: nowrap;
+}
+
+.nt-li-g {
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+}
+
+#tree .leaf {
+  width: 50%;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 1px;
+}
+
+#tree .leaf > div {
+  border: 1px solid #ddd;
+  padding: 2px;
+}
+
+#tree a {
+  color: black;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#tree a:hover {
+  text-decoration: underline;
+}
+
