@@ -1,6 +1,15 @@
 import config from "./config.js";
 
+ class BungieAPIError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "BungieAPIError";
+    }
+}
+
 export default {
+
+    BungieAPIError,
 
     debugLog() {
         if (config.debug) console.log(...arguments);

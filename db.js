@@ -4,10 +4,18 @@ import d1BooksInfo from "./d1/D1BooksInfo.js";
 
 var dbInstance;
 
+async function bungieFetch(url) {
+    try {
+        return fetch("https://www.bungie.net" + url);
+    } catch (ex) {
+        throw new utils.BungieAPIError("Unable to reach Bungie API");
+    }
+}
+
 async function getPageDataFromAPI(language) {
 	var closestD1Language = language.split("-")[0];
 
-	var manifest = await fetch("https://www.bungie.net/Platform/Destiny2/Manifest/").then(r => r.json());
+	var manifest = await bungieFetch("/Platform/Destiny2/Manifest/").then(r => r.json());
     var loreDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths[language].DestinyLoreDefinition;
 	var grimoireUrl = chrome.runtime.getURL(`d1/DestinyGrimoireDefinition.${closestD1Language}.json`);
     var cardsUrl = chrome.runtime.getURL(`d1/DestinyGrimoireCardDefinition.${closestD1Language}.json`);
@@ -16,15 +24,15 @@ async function getPageDataFromAPI(language) {
     var seasonDefinitionUrl = manifest.Response.jsonWorldComponentContentPaths[language].DestinySeasonDefinition;
 
     var promises = [
-        fetch("https://www.bungie.net" + loreDefinitionUrl).then(r => r.json()),
+        bungieFetch(loreDefinitionUrl).then(r => r.json()),
         fetch(cardsUrl).then(r => r.json())
         	.catch(e => {
         		utils.debugLog(`Language ${language} not available for D1 grimoire cards`);
         		return [];
         	}),
-        fetch("https://www.bungie.net" + presentationNodeDefinitionUrl).then(r => r.json()),
-        fetch("https://www.bungie.net" + seasonDefinitionUrl).then(r => r.json()),
-    	fetch("https://www.bungie.net" + recordDefinitionUrl).then(r => r.json()),
+        bungieFetch(presentationNodeDefinitionUrl).then(r => r.json()),
+        bungieFetch(seasonDefinitionUrl).then(r => r.json()),
+    	bungieFetch(recordDefinitionUrl).then(r => r.json()),
     	fetch(grimoireUrl).then(r => r.json())
     		.catch(e => {
         		utils.debugLog(`Language ${language} not available for D1 grimoire`);
@@ -157,8 +165,6 @@ async function prepareDataForDB() {
 }
 
 async function getNewDB() {
-	let needData = false;
-
 	const db = await openDB("ishtar", 1, {
 
         upgrade(db, oldVersion, newVersion, transaction) {
@@ -169,8 +175,6 @@ async function getNewDB() {
             store.createIndex("title", "title.en");
             store.createIndex("url", "url");
             store.createIndex("type", "type");
-
-            needData = true;
 
         },
         blocked() {
@@ -186,20 +190,16 @@ async function getNewDB() {
 
     });
 
-	if (needData) {
+	var allPages = await prepareDataForDB();
+    const tx = db.transaction("pages", "readwrite");
+    var addPromises = allPages.map((page) => tx.store.add(page));
 
-		var allPages = await prepareDataForDB();
-        const tx = db.transaction("pages", "readwrite");
-        var addPromises = allPages.map((page) => tx.store.add(page));
+    var preferredLanguage = await chrome.storage.sync.get("language");
+    if (preferredLanguage.language && preferredLanguage.language != "en") {
+        await addLanguage(db, preferredLanguage.language);
+    }
 
-        var preferredLanguage = await chrome.storage.sync.get("language");
-        if (preferredLanguage.language && preferredLanguage.language != "en") {
-            await addLanguage(db, preferredLanguage.language);
-        }
-
-        await Promise.all([...addPromises, tx.done]);
-
-	}
+    await Promise.all([...addPromises, tx.done]);
 
 	utils.debugLog("DB ready");
 	return db;
@@ -279,12 +279,37 @@ export default {
 	},
 
 	async getDB() {
-		if (dbInstance) {
+
+        var lastDBAccess = (await chrome.storage.local.get("lastDBAccess"))?.lastDBAccess;
+        if (lastDBAccess && (Date.now() - lastDBAccess > 3600000)) { // 1 hour
+            try {
+                var installedManifestVersion = await chrome.storage.local.get("d2ManifestVersion");
+                var currentD2Manifest = await bungieFetch("/Platform/Destiny2/Manifest/").then(r => r.json());
+                if (installedManifestVersion.d2ManifestVersion != currentD2Manifest.Response.version) {
+                    utils.debugLog(`Rebuilding DB (${installedManifestVersion.d2ManifestVersion} to ${currentD2Manifest.Response.version})`);
+                    dbInstance = null; // Invalidate the current instance
+                }
+            } catch (ex) {
+                if (ex instanceof utils.BungieAPIError) {
+                    utils.debugLog("Unable to check manifest version");
+                }
+            }
+        }
+        await chrome.storage.local.set({lastDBAccess: Date.now()});
+
+        var validDB = !!dbInstance;
+        try {
+            await dbInstance;
+        } catch (ex) {
+            validDB = false;
+        }
+        
+		if (validDB) {
 			return dbInstance;
 		}
-		dbInstance = new Promise((resolve, reject) => {
-			getNewDB().then(resolve);
-		});
+
+        dbInstance = getNewDB();
+
 		return dbInstance;
 	},
 

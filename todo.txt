@@ -1,1 +1,1 @@
-check manifest version and updatedb if necessary
+at least some actual string translations

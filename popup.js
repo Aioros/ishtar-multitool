@@ -20,7 +20,11 @@ var treeConfig = {
 function sendMessage() {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(...arguments, response => {
-            resolve(response);
+            if (response.name == "BungieAPIError") {
+                reject(response);
+            } else {
+                resolve(response);
+            }
         });
     });
 }
@@ -76,8 +80,6 @@ async function buildTree(language) {
     document.getElementById("tree_loading").classList.remove("d-none");
     document.getElementById("tree").classList.add("d-none");
     
-    var dbReady = await sendMessage({request: "isDBReady"});
-
     var {loreTree} = await chrome.storage.local.get("loreTree");
 
     loreTree = loreTree[language];
@@ -224,44 +226,53 @@ async function main() {
     currentTab = tabs[0];
 
     var preferredLanguage = await chrome.storage.sync.get("language");
-
-    await updateLanguageList(preferredLanguage.language);
-
-    var pageInfo;
     var language = preferredLanguage.language || "en";
-    if (currentTab.url && currentTab.url.includes("ishtar-collective.net")) {
-        pageInfo = await askForPageInfo();
-        if (pageInfo.currentLanguage != language) {
-            translatePage(language);
+
+    try {
+
+        await sendMessage({request: "isDBReady"});
+
+        await updateLanguageList(language);
+
+        var pageInfo;
+        if (currentTab.url && currentTab.url.includes("ishtar-collective.net")) {
+            pageInfo = await askForPageInfo();
+            if (pageInfo.currentLanguage != language) {
+                translatePage(language);
+            }
         }
-    }
 
-    await buildTree(language);
-    if (pageInfo) {
-        expandTree(pageInfo);
-    }
+        await buildTree(language);
+        if (pageInfo) {
+            expandTree(pageInfo);
+        }
 
-    document.querySelector("header a").addEventListener("click", (evt) => {
-        evt.preventDefault();
-        openLink(evt.target.closest("a").href);
-    });
-
-    document.querySelector("#tree").addEventListener("click", (evt) => {
-        let closestLi = evt.target.closest("li");
-        if (closestLi?.classList.contains("leaf")) {
+        document.querySelector("header a").addEventListener("click", (evt) => {
             evt.preventDefault();
-            openLink(evt.target.href);
-        }
-    });
+            openLink(evt.target.closest("a").href);
+        });
 
-    document.querySelector('#nav-tree-search').addEventListener("keypress", (evt) => {
-        console.log(evt);
-        if (evt.key === 'Enter') {
-            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                var tab = tabs[0];
-                chrome.tabs.update(tab.id, {url: `http://www.ishtar-collective.net/search/${evt.target.value}`});
-            });
+        document.querySelector("#tree").addEventListener("click", (evt) => {
+            let closestLi = evt.target.closest("li");
+            if (closestLi?.classList.contains("leaf")) {
+                evt.preventDefault();
+                openLink(evt.target.href);
+            }
+        });
+
+        document.querySelector('#nav-tree-search').addEventListener("keypress", (evt) => {
+            if (evt.key === 'Enter') {
+                chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                    var tab = tabs[0];
+                    chrome.tabs.update(tab.id, {url: `http://www.ishtar-collective.net/search/${evt.target.value}`});
+                });
+            }
+        });
+
+    } catch (ex) {
+        if (ex.name == "BungieAPIError") {
+            document.getElementById("api_error_alert").classList.remove("d-none");
         }
-    });
+    }
 
 }

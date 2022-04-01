@@ -52,6 +52,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     processMessage(request).then((response) => {
         utils.debugLog("replying", response);
         sendResponse(response);
+    }).catch((ex) => {
+        utils.debugLog(ex);
+        sendResponse(ex);
     });
     return true;
 });
