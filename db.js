@@ -190,18 +190,23 @@ async function getNewDB() {
 
     });
 
-	var allPages = await prepareDataForDB();
-    const tx = db.transaction("pages", "readwrite");
-    var addPromises = allPages.map((page) => tx.store.add(page));
+    var pageCount = await db.transaction("pages").store.count();
+    if (pageCount == 0) {
 
-    var preferredLanguage = await chrome.storage.sync.get("language");
-    if (preferredLanguage.language && preferredLanguage.language != "en") {
-        await addLanguage(db, preferredLanguage.language);
+    	var allPages = await prepareDataForDB();
+        const tx = db.transaction("pages", "readwrite");
+        var addPromises = allPages.map((page) => tx.store.add(page));
+
+        var preferredLanguage = await chrome.storage.sync.get("language");
+        if (preferredLanguage.language && preferredLanguage.language != "en") {
+            await addLanguage(db, preferredLanguage.language);
+        }
+
+        await Promise.all([...addPromises, tx.done]);
+
+    	utils.debugLog("DB ready");
+
     }
-
-    await Promise.all([...addPromises, tx.done]);
-
-	utils.debugLog("DB ready");
 	return db;
 }
 
