@@ -20,7 +20,7 @@ var treeConfig = {
 function sendMessage() {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(...arguments, response => {
-            if (response.name == "BungieAPIError") {
+            if (response?.name == "BungieAPIError") {
                 reject(response);
             } else {
                 resolve(response);

@@ -31,6 +31,10 @@ export default {
         return pageInfo;
     },
 
+    async searchPageContent(args) {
+        return await db.searchPageContent(args.query, args.language);
+    },
+
     async installedLanguages(args) {
     	let idb = await db.getDB();
         let cursor = await idb.transaction("pages").store.index("type").openCursor(IDBKeyRange.only("entry"));
@@ -53,10 +57,17 @@ export default {
         args.elements.forEach((element) => {
             if (["entry", "card", "book", "season"].includes(element.type)) {
                 // These are pages in our database, we find them and update the URL too
+                var query = {
+                    type: element.type,
+                    title: element.title
+                };
+                if (element.type != "season") {
+                    query.url = utils.normalizeURL(element.url);
+                }
                 promises.push(
-                    db.getStoredPage({type: element.type, title: element.title, url: utils.normalizeURL(element.url)})
+                    db.getStoredPage(query)
                         .then((dbPage) => {
-                        	if (!dbPage) throw {error: "Error retrieving page", query: element};
+                        	if (!dbPage) throw {error: "Error retrieving page", query};
                             if (dbPage.type != "season") {
                                 // we don't store the url for seasons
                                 return db.setStoredPage(Object.assign(dbPage, {url: utils.normalizeURL(element.url)}));

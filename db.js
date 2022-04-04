@@ -31,7 +31,7 @@ async function getPageDataFromAPI(language) {
         		return [];
         	}),
         bungieFetch(presentationNodeDefinitionUrl).then(r => r.json()),
-        bungieFetch(seasonDefinitionUrl).then(r => r.json()),
+        bungieFetch(seasonDefinitionUrl + "?cb=" + Math.round(new Date().getTime() / 1000)).then(r => r.json()),
     	bungieFetch(recordDefinitionUrl).then(r => r.json()),
     	fetch(grimoireUrl).then(r => r.json())
     		.catch(e => {
@@ -114,7 +114,7 @@ async function prepareDataForDB() {
         type: "entry",
         title: {en: entry.displayProperties.name},
         subtitle: {en: entry.subtitle},
-        content: {en: entry.displayProperties.description},
+        content: {en: entry.displayProperties.description || ""},
         url: utils.getURLFromPageInfo("entry", entry.displayProperties.name, entry)
     })).concat(enCards.map((card) => {
         var cardData = JSON.parse(card.json);
@@ -123,7 +123,7 @@ async function prepareDataForDB() {
             type: "card",
             title: {en: cardData.cardName},
             subtitle: {en: cardData.cardIntro},
-            content: {en: cardData.cardDescription},
+            content: {en: cardData.cardDescription || ""},
             url: utils.getURLFromPageInfo("card", cardData.cardName)
         }
     }));
@@ -216,14 +216,14 @@ async function addLanguage(db, language) {
             var entry = entries[oldPage.hash];
             newPage.title[language] = entry.displayProperties.name;
             newPage.subtitle[language] = entry.subtitle;
-            newPage.content[language] = entry.displayProperties.description;
+            newPage.content[language] = entry.displayProperties.description || "";
         } else if (oldPage.type == "card") {
             var card = cards.find((card) => card.id == oldPage.hash);
             if (card) {
                 card = JSON.parse(card.json);
                 newPage.title[language] = card.cardName;
                 newPage.subtitle[language] = card.cardIntro;
-                newPage.content[language] = card.cardDescription;
+                newPage.content[language] = card.cardDescription || "";
             }
         } else if (oldPage.type == "book") {
             var book = presentationNodes[oldPage.hash];
@@ -341,5 +341,19 @@ export default {
 	    }
 
 	    return null;
-	}
+	},
+
+    async searchPageContent(query, language) {
+        var results = [];
+        var idb = await this.getDB();
+        var cursor = await idb.transaction("pages").store.openCursor();
+        while (cursor) {
+            if (cursor.value.content?.[language]?.toLowerCase().includes(query.toLowerCase())) {
+                results.push(cursor.value);
+            }
+            cursor = await cursor.continue();
+        }
+        return results;
+    }
+
 }

@@ -1,1 +1,1 @@
-at least some actual string translations
+remove unused icons
